@@ -259,7 +259,7 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public async moveCursorDown(
+  public static async moveCursorDown(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
     select = false,
@@ -440,7 +440,7 @@ export class VSCX {
    * @returns The text chopped into multiple lines within 80 characters,
    *          either as a string or an array.
    */
-  public within80Chars(
+  public static within80Chars(
     text: string,
     { prefix, asArray } = { prefix: '', asArray: false },
   ) {
