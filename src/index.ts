@@ -80,6 +80,14 @@ export class VSCX {
   }
 
   /**
+   * The language id for the currently focused file, or `undefined` if
+   * not found.
+   */
+  public static get currentLanguage() {
+    return VSCX.editor?.document?.languageId;
+  }
+
+  /**
    * The primary editor cursor selection, or `undefined` if there is no
    * cursor to get.
    */
