@@ -1,0 +1,28 @@
+{
+  "name": "vscx",
+  "version": "0.3.0",
+  "description": "Extension library for the vscode API to help with some common situations I have been in.",
+  "main": "index.ts",
+  "scripts": {
+    "build": "tsc",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "lint": "tslint -p tsconfig.json",
+    "minify": "uglifyjs lib/index.js -c -o lib/index.js",
+    "compile": "npm run format && npm run lint && npm run build && npm run minify"
+  },
+  "files": [
+    "lib/**/*"
+  ],
+  "author": "Chupacabral",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "prettier": "^2.7.1",
+    "tslint": "^6.1.3",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^4.7.4",
+    "uglify-js": "^3.17.0"
+  },
+  "dependencies": {
+    "@types/vscode": "^1.70.0"
+  }
+}
