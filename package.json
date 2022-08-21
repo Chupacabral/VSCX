@@ -1,8 +1,25 @@
 {
   "name": "vscx",
   "version": "0.3.0",
-  "description": "Extension library for the vscode API to help with some common situations I have been in.",
-  "main": "index.ts",
+  "description": "Extension and Convenience library for the VSCode API.",
+  "author": "Chupacabral",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/Chupacabral/VSCX",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chupacabral/VSCX"
+  },
+  "keywords": [
+    "vsc",
+    "visualstudiocode",
+    "code",
+    "vscode",
+    "extension",
+    "extensions",
+    "api"
+  ],
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "scripts": {
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\"",
@@ -13,8 +30,6 @@
   "files": [
     "lib/**/*"
   ],
-  "author": "Chupacabral",
-  "license": "Apache-2.0",
   "devDependencies": {
     "prettier": "^2.7.1",
     "tslint": "^6.1.3",
