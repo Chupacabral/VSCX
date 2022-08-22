@@ -185,14 +185,8 @@ export class VSCX {
   }
 
   /**
-   * Returns information about the context of every single indentation level
-   * based on the line of text the primary cursor is locatred on, including
-   * levels further indented than the current indentation if wanted.
-   *
-   * @param extra How many extra indentation levels after the current level to
-   *              generate information for.
-   *
-   *              Default is `1`.
+   * An object that contains information on the indentation text for
+   * every indentation level from 0 to the current level to any afterwards.
    *
    * @returns An object with:
    *
@@ -200,58 +194,26 @@ export class VSCX {
    *
    *          `current` The text making up the current indentation level
    *
-   *          `previousLevel` The amount of indents for the previous level
-   *
-   *          `previous` The text making up the previous indentation level
-   *
-   *          `nextLevel` The amount of indents for the next level
-   *
-   *          `next` The text making up the next indentation level
-   *
-   *          `level` An Array of the text for every indentation level,
-   *                  including the previous, current, next, etc. levels
-   *                  (intended in case a loop over the levels is needed).
-   *
    *          `offset(n)` A function that returns the indent at level
    *                      `currentLevel + n`.
    */
-  public static indent(extra: number = 1) {
+  public static get indent() {
     const indentInfo = VSCX.currentLineTabs;
     const tab = VSCX.tabText;
 
     const indentData: {
       currentLevel: number;
       current: string;
-      previousLevel: number;
-      previous: string;
-      nextLevel: number | null;
-      next: string | null;
-      level: string[];
-      offset: (n: number) => string | null;
+      offset: (n: number) => string;
     } = {
       currentLevel: indentInfo.amount,
       current: indentInfo.list.join(''),
-      previousLevel: indentInfo.amount - 1,
-      previous: indentInfo.list.slice(0, -1).join(''),
-      nextLevel: extra >= 1 ? indentInfo.amount + 1 : null,
-      next: extra >= 1 ? tab.repeat(indentInfo.amount + 1) : null,
-      level: [],
       offset(n: number) {
-        if (this.currentLevel + n > this.level.length) {
-          return null;
-        } else {
-          return this.level[this.currentLevel + n];
-        }
+        const level = this.currentLevel + n;
+
+        return level + n < 0 ? '' : tab.repeat(level);
       },
     };
-
-    if (indentData.previousLevel < 0) {
-      indentData.previousLevel = 0;
-    }
-
-    for (let x = 0; x < indentInfo.amount + extra; x++) {
-      indentData.level.push(tab.repeat(x));
-    }
 
     return indentData;
   }
