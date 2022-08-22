@@ -1,6 +1,6 @@
 {
   "name": "vscx",
-  "version": "0.3.6",
+  "version": "0.3.7-0",
   "description": "Extension and Convenience library for the VSCode API.",
   "author": "Chupacabral",
   "license": "Apache-2.0",
@@ -27,8 +27,11 @@
     "minify": "uglifyjs lib/index.js -c -o lib/index.js",
     "compile": "npm run format && npm run lint && npm run build && npm run minify",
     "update-patch": "npm run compile && npm version --no-git-tag patch",
-    "update-minor": "npm run compile && npm version --no-git-tagminor",
-    "update-major": "npm run compile && npm version --no-git-tagmajor"
+    "update-prepatch": "npm run compile && npm version --no-git-tag prepatch",
+    "update-minor": "npm run compile && npm version --no-git-tag minor",
+    "update-preminor": "npm run compile && npm version --no-git-tag preminor",
+    "update-major": "npm run compile && npm version --no-git-tag major",
+    "update-premajor": "npm run compile && npm version --no-git-tag premajor"
   },
   "files": [
     "lib/**/*"
