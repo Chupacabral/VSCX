@@ -211,6 +211,9 @@ export class VSCX {
    *          `level` An Array of the text for every indentation level,
    *                  including the previous, current, next, etc. levels
    *                  (intended in case a loop over the levels is needed).
+   *
+   *          `offset(n)` A function that returns the indent at level
+   *                      `currentLevel + n`.
    */
   public static indent(extra: number = 1) {
     const indentInfo = VSCX.currentLineTabs;
@@ -224,6 +227,7 @@ export class VSCX {
       nextLevel: number | null;
       next: string | null;
       level: string[];
+      offset: (n: number) => string | null;
     } = {
       currentLevel: indentInfo.amount,
       current: indentInfo.list.join(''),
@@ -232,6 +236,13 @@ export class VSCX {
       nextLevel: extra >= 1 ? indentInfo.amount + 1 : null,
       next: extra >= 1 ? tab.repeat(indentInfo.amount + 1) : null,
       level: [],
+      offset(n: number) {
+        if (this.currentLevel + n > this.level.length) {
+          return null;
+        } else {
+          return this.level[this.currentLevel + n];
+        }
+      },
     };
 
     if (indentData.previousLevel < 0) {
