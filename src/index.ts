@@ -177,7 +177,7 @@ export class VSCX {
       ?.slice(0, firstText)
       ?.matchAll(new RegExp(tab, 'g'));
 
-    const list = foundTabs ? Array(foundTabs) : [];
+    const list = foundTabs ? Array.from(foundTabs).map((t) => t[0]) : [];
 
     const amount = list ? list.length : 0;
 
@@ -211,7 +211,7 @@ export class VSCX {
       offset(n: number) {
         const level = this.currentLevel + n;
 
-        return level + n < 0 ? '' : tab.repeat(level);
+        return level + n <= 0 ? '' : tab.repeat(level);
       },
     };
 
