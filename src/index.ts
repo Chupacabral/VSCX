@@ -99,8 +99,8 @@ export class VSCX {
    */
   public static currentLanguageMatch(
     options: string[],
-    coalesce?: Record<string, any>,
-  ): string | null | any {
+    coalesce?: Record<string, string>,
+  ) {
     const language = VSCX.currentLanguage;
 
     if (!language) {
