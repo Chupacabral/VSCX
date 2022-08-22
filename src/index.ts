@@ -35,9 +35,12 @@ type GetInputOptions = {
   title?: string;
   value?: string;
   valueSelection?: [number, number];
-  valueOnCancel: any;
+  valueOnCancel?: any;
 };
 
+/**
+ * Module for Visual Studio Code eXpanded library.
+ */
 export class VSCX {
   // * ATTRIBUTE ACCESSORS
   /**
