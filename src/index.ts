@@ -311,6 +311,18 @@ export class VSCX {
   }
 
   /**
+   * Inserts text in the current editor document after the primary cursor
+   * position.
+   *
+   * @param text The text to insert after the cursor.
+   */
+  public static insertAtCursor(text: string) {
+    VSCX.editor?.edit((editBuilder) => {
+      editBuilder.insert(VSCX.cursorPosition as vscode.Position, text);
+    });
+  }
+
+  /**
    * Convenience wrapper over
    * `vscode.commands.executeCommand('cursorMove')`.
    *
