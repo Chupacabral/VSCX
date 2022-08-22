@@ -88,6 +88,37 @@ export class VSCX {
   }
 
   /**
+   * Get the current file language id, and see if it matches against a list
+   * of given options.
+   *
+   * @param options An array of language names to match against.
+   * @param coalesce An object of language names, and what to convert them to.
+   *                 Does not need to have a value for every option, just the
+   *                 ones you want coalesced into other values.
+   * @returns The matching option, or `null` if not found.
+   */
+  public static currentLanguageMatch(
+    options: string[],
+    coalesce?: Record<string, any>,
+  ): string | null | any {
+    const language = VSCX.currentLanguage;
+
+    if (!language) {
+      return null;
+    }
+
+    if (options.includes(language)) {
+      if (coalesce && language in coalesce) {
+        return coalesce[language];
+      } else {
+        return language;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * The primary editor cursor selection, or `undefined` if there is no
    * cursor to get.
    */
