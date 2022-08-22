@@ -184,6 +184,67 @@ export class VSCX {
     return { list, amount };
   }
 
+  /**
+   * Returns information about the context of every single indentation level
+   * based on the line of text the primary cursor is locatred on, including
+   * levels further indented than the current indentation if wanted.
+   *
+   * @param extra How many extra indentation levels after the current level to
+   *              generate information for.
+   *
+   *              Default is `1`.
+   *
+   * @returns An object with:
+   *
+   *          `currentLevel` The amount of indents for the current level
+   *
+   *          `current` The text making up the current indentation level
+   *
+   *          `previousLevel` The amount of indents for the previous level
+   *
+   *          `previous` The text making up the previous indentation level
+   *
+   *          `nextLevel` The amount of indents for the next level
+   *
+   *          `next` The text making up the next indentation level
+   *
+   *          `levels` An Array of the text for every indentation level,
+   *                   including the previous, current, next, etc. levels
+   *                   (intended in case a loop over the levels is needed).
+   */
+  public static indent(extra: number = 1) {
+    const indentInfo = VSCX.currentLineTabs;
+    const tab = VSCX.tabText;
+
+    const indentData: {
+      currentLevel: number;
+      current: string;
+      previousLevel: number;
+      previous: string;
+      nextLevel: number | null;
+      next: string | null;
+      levels: string[];
+    } = {
+      currentLevel: indentInfo.amount,
+      current: indentInfo.list.join(''),
+      previousLevel: indentInfo.amount - 1,
+      previous: indentInfo.list.slice(0, -1).join(''),
+      nextLevel: extra >= 1 ? indentInfo.amount + 1 : null,
+      next: extra >= 1 ? tab.repeat(indentInfo.amount + 1) : null,
+      levels: [],
+    };
+
+    if (indentData.previousLevel < 0) {
+      indentData.previousLevel = 0;
+    }
+
+    for (let x = 0; x < indentInfo.amount + extra; x++) {
+      indentData.levels.push(tab.repeat(x));
+    }
+
+    return indentData;
+  }
+
   // * VSCODE API FUNCTIONALITY
   /**
    * Shorthand for `vscode.window.showInformationMessage`.
@@ -358,7 +419,7 @@ export class VSCX {
    * @returns The text, converted to camelCase with any separators
    *          (anything not a letter or number) removed.
    */
-  public static camelize(text: string, keepOuterUnderscores = false) {
+  public static camelize(text: string, keepOuterUnderscores: boolean = false) {
     let [startUnderscores, endUnderscores] = ['', ''];
 
     if (keepOuterUnderscores) {
@@ -396,7 +457,7 @@ export class VSCX {
    * @returns The text, converted to PascalCase with any separators
    *          (anything not a letter or number) removed.
    */
-  public static pascalize(text: string, keepOuterUnderscores = false) {
+  public static pascalize(text: string, keepOuterUnderscores: boolean = false) {
     let [startUnderscores, endUnderscores] = ['', ''];
 
     if (keepOuterUnderscores) {
