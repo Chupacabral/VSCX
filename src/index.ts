@@ -451,7 +451,7 @@ export class VSCX {
       absolutePath?: boolean;
       showFile?: boolean;
       viewBeside?: boolean;
-    },
+    } = {},
   ) {
     options.showFile = options.showFile ?? true;
     options.viewColumn = options.viewBeside
