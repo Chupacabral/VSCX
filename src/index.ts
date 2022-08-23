@@ -247,7 +247,7 @@ export class VSCX {
     const commandList = await VSCX.commandList();
 
     // Return whether any command name given is not found in command list.
-    return Boolean(commandNames.find((name) => !commandList.includes(name)));
+    return Boolean(commandNames.find((name) => commandList.includes(name)));
   }
 
   /**
@@ -464,10 +464,10 @@ export class VSCX {
 
   /**
    * Opens a preview window with the contents of a markdown file.
-   * 
+   *
    * Note that this will not work if the included VSCode Markdown extension
    * isn't working.
-   * 
+   *
    * @param context The VSCode extension context. Used to get the path for a
    *                file relative to the extension directory.
    * @param path    The path of the markdown file to preview.
