@@ -44,6 +44,13 @@ type GetInputOptions = {
 export class VSCX {
   // * ATTRIBUTE ACCESSORS
   /**
+   * The VSCode workspace.
+   */
+  public static get workspace() {
+    return vscode.workspace;
+  }
+
+  /**
    * The VSCode window namespace.
    */
   public static get window() {
@@ -218,7 +225,31 @@ export class VSCX {
     return indentData;
   }
 
+  /**
+   * The list of commands registered for VSCode.
+   * @param showInternal Whether or not to show internal VSCode commands
+   *                     (They start with an underscore).
+   * @returns A promise containing a list of strings of all the command names.
+   */
+  public static async commandList(showInternal: boolean = false) {
+    return await vscode.commands.getCommands(showInternal);
+  }
+
   // * VSCODE API FUNCTIONALITY
+  /**
+   * Checks if the given command names have been registered with VSCode.
+   *
+   * @param commandNames The names of the commands to test the existence of.
+   * @returns A boolean representing if all the command names have been
+   *          registered.
+   */
+  public static async commandExists(...commandNames: string[]) {
+    const commandList = await VSCX.commandList();
+
+    // Return whether any command name given is not found in command list.
+    return Boolean(commandNames.find((name) => !commandList.includes(name)));
+  }
+
   /**
    * Shorthand for `vscode.window.showInformationMessage`.
    * @param message The message to show.
@@ -332,7 +363,7 @@ export class VSCX {
   public static async moveCursorUp(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
-    select = false,
+    select: boolean = false,
   ) {
     amount = typeof amount === 'string' ? amount.length : amount;
 
@@ -391,6 +422,68 @@ export class VSCX {
     amount = typeof amount === 'string' ? amount.length : amount;
 
     return await VSCX.moveCursor('right', unit, amount, select);
+  }
+
+  /**
+   *
+   * @param context The VSCode extension context. Used to get the path for a
+   *                file relative to the extension directory.
+   * @param path    The path to the text file being opened.
+   * @param options An object of options for the method. Has the same options
+   *                as the vscode API function `vscode.window.showTextDocument`,
+   *                but with an additional options:
+   *
+   *                `absolutePath` lets you to specify if the file path given
+   *                is relative or not.
+   *
+   *                `showFile` lets you specify if the function should also
+   *                show the file in a new editor.
+   * @returns An object with the opened text file document and the editor
+   *          it was opened in (if allowed).
+   */
+  public static async openTextFile(
+    context: vscode.ExtensionContext,
+    path: string,
+    options: vscode.TextDocumentShowOptions & {
+      absolutePath?: boolean;
+      showFile?: boolean;
+    } = {},
+  ) {
+    options.showFile = options.showFile ?? true;
+
+    const file = options.absolutePath ? path : context.asAbsolutePath(path);
+    const document = await VSCX.workspace.openTextDocument(file);
+    let editor;
+
+    if (options.showFile) {
+      editor = await vscode.window.showTextDocument(document, options);
+    }
+
+    return { document, editor };
+  }
+
+  /**
+   * Opens a preview window with the contents of a markdown file.
+   * 
+   * Note that this will not work if the included VSCode Markdown extension
+   * isn't working.
+   * 
+   * @param context The VSCode extension context. Used to get the path for a
+   *                file relative to the extension directory.
+   * @param path    The path of the markdown file to preview.
+   * @param options An options object with attribute `absolutePath` which
+   *                lets you to specify if the file path given is relative or
+   *                not.
+   */
+  public static async previewMarkdownFile(
+    context: vscode.ExtensionContext,
+    path: string,
+    options: { absolutePath?: boolean } = {},
+  ) {
+    const file = options.absolutePath ? path : context.asAbsolutePath(path);
+    const fileURI = vscode.Uri.file(file);
+
+    await vscode.commands.executeCommand('markdown.showPreview', fileURI);
   }
 
   // * DATA UTILS
