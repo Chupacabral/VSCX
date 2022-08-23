@@ -438,6 +438,9 @@ export class VSCX {
    *
    *                `showFile` lets you specify if the function should also
    *                show the file in a new editor.
+   *
+   *                `showBeside` lets you specify if the text file should be
+   *                open in a new editor pane beside the current one.
    * @returns An object with the opened text file document and the editor
    *          it was opened in (if allowed).
    */
@@ -447,9 +450,13 @@ export class VSCX {
     options: vscode.TextDocumentShowOptions & {
       absolutePath?: boolean;
       showFile?: boolean;
-    } = {},
+      viewBeside?: boolean;
+    },
   ) {
     options.showFile = options.showFile ?? true;
+    options.viewColumn = options.viewBeside
+      ? vscode.ViewColumn.Beside
+      : options.viewColumn;
 
     const file = options.absolutePath ? path : context.asAbsolutePath(path);
     const document = await VSCX.workspace.openTextDocument(file);
