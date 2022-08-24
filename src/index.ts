@@ -469,6 +469,10 @@ export class VSCX {
     return { document, editor };
   }
 
+  // TODO: Make functions using vscode.workspace.fs
+  //     | Such as readFile, writeFile, copyFile, deleteFile, makeDirectory,
+  //     | readDirectory, renameFile, etc.
+
   /**
    * Opens a preview window with the contents of a markdown file.
    *
@@ -489,8 +493,15 @@ export class VSCX {
   ) {
     const file = options.absolutePath ? path : context.asAbsolutePath(path);
     const fileURI = vscode.Uri.file(file);
+    let previewSuccess = true;
 
-    await vscode.commands.executeCommand('markdown.showPreview', fileURI);
+    try {
+      await vscode.commands.executeCommand('markdown.showPreview', fileURI);
+    } catch (markdownPreviewError: unknown) {
+      previewSuccess = false;
+    }
+
+    return previewSuccess;
   }
 
   // * DATA UTILS
