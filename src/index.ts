@@ -1,50 +1,22 @@
 import * as vscode from 'vscode';
+import {
+  MoveCursorDirection,
+  MoveCursorDirections,
+} from './move_cursor_direction';
+import { GetInputOptions } from './get_input_options';
 
-/**
- * Type describing the possible movement options for the VSCode API built-in
- * command `cursorMove`, used in functions like `VSCX.moveCursor`.
- */
-type MoveCursorDirection =
-  | 'left'
-  | 'right'
-  | 'up'
-  | 'down'
-  | 'prevBlankLine'
-  | 'nextBlankLine'
-  | 'wrappedLineStart'
-  | 'wrappedLineEnd'
-  | 'wrappedLineColumnCenter'
-  | 'wrappedLineFirstNonWhitespaceCharacter'
-  | 'wrappedLineLastNonWhitespaceCharacter'
-  | 'viewPortTop'
-  | 'viewPortCenter'
-  | 'viewPortBottom'
-  | 'viewPortIfOutside';
-
-/**
- * Type describing options for `VSCX.getInput`.
- * Is generally the same as `vscode.InputBoxOptions`, but with an additional
- * `valueOnCancel` attribute, that allows for a custom value to be returned
- * if the input box is cancelled, instead of only returning undefined.
- */
-type GetInputOptions = {
-  ignoreFocusOut?: boolean;
-  password?: boolean;
-  placeHolder?: string;
-  prompt?: string;
-  title?: string;
-  value?: string;
-  valueSelection?: [number, number];
-  valueOnCancel?: any;
-};
-
-/**
- * Module for Visual Studio Code eXpanded library.
- */
+//* GETTERS
 export class VSCX {
-  // * ATTRIBUTE ACCESSORS
   /**
-   * The VSCode workspace.
+   * The VSCode namespace for the current workspace.
+   * A workspace is the collection of one or more folders that are opened in
+   * an editor window (instance).
+   *
+   * Note that it is possible to open an editor *without* a workspace; e.g.
+   * when you open VSCode for a single file.
+   *
+   * *Refer to https://code.visualstudio.com/docs/editor/workspaces for more
+   * information on the concept of workspaces.*
    */
   public static get workspace() {
     return vscode.workspace;
@@ -52,51 +24,678 @@ export class VSCX {
 
   /**
    * The VSCode window namespace.
+   *
+   * Namespace for dealing with the current window of the editor.
+   * That is, visible and active editors as well as UI elements to
+   * show messages, selections, and queries for user input.
    */
   public static get window() {
     return vscode.window;
   }
 
   /**
-   * The current active text editor in VSCode.
+   * The current active text editor in VSCode, or `undefined` if none
+   * are open.
    *
-   * May return undefined if no editors are open.
+   * The active editor is the one that currently has focus or, when none has
+   * focus, the one that has changed input most recently.
    */
   public static get editor() {
-    return VSCX.window.activeTextEditor;
+    return vscode.window.activeTextEditor;
   }
 
   /**
-   * The current active notebook editor in VSCode.
+   * The current active notebook editor in VSCode, or `undefined` if none
+   * are open.
    *
-   * May return undefined if no notebooks are open.
+   * The active editor is the one that currently has focus or, when none has
+   * focus, the one that has changed input most recently.
    */
   public static get notebook() {
-    return VSCX.window.activeNotebookEditor;
+    return vscode.window.activeNotebookEditor;
   }
 
   /**
    * The VSCode commands namespace.
+   * A command is a function with a unique identifier.
+   * The function is sometimes also called command handler.
    */
   public static get commands() {
     return vscode.commands;
   }
 
   /**
-   * The current VSCode editor document, or `undefined` if document not found.
+   * The document associated with the current active text editor, or
+   * `undefined` if none are open.
+   *
+   * The document will be the same for the entire lifetime of the editor.
    */
   public static get document() {
-    return VSCX.editor?.document;
+    return vscode.window.activeTextEditor?.document;
   }
 
   /**
-   * The language id for the currently focused file, or `undefined` if
-   * not found.
+   * The identifier for the current language associated with the document
+   * from the current activate text editor, or none if no editors open.
    */
   public static get currentLanguage() {
-    return VSCX.editor?.document?.languageId;
+    return vscode.window.activeTextEditor?.document.languageId;
   }
 
+  /**
+   * The primary selection on the current active text editor.
+   *
+   * Shorthand for `VSCX.selections[0]`.
+   */
+  public static get selection() {
+    return vscode.window.activeTextEditor?.selection;
+  }
+
+  /**
+   * The selections in the current active text editor.
+   *
+   * The primary selection is always at index `0`.
+   */
+  public static get selections() {
+    return vscode.window.activeTextEditor?.selections;
+  }
+
+  /**
+   * The position of the cursor in the current active text editor.
+   *
+   * This position might be before or after
+   * `selection.anchor`.
+   *
+   * @return A {@link vscode.Position} of where the cursor is.
+   */
+  public static get cursorPosition() {
+    return vscode.window.activeTextEditor?.selection?.active;
+  }
+
+  /**
+   * The current line number in the current active text editor, or
+   * `undefined` if no open editor.
+   *
+   * Note that the returned line is not "live", and so will not change if the
+   * current line changes.
+   *
+   * @return The {@link vscode.TextLine} within the range `[0, document.length)`
+   */
+  public static get currentLine() {
+    const position = VSCX.cursorPosition;
+    const doc = vscode.window.activeTextEditor?.document;
+
+    return position ? doc?.lineAt(position) : undefined;
+  }
+
+  /**
+   * Whether or not the current active text editor is set to insert spaces
+   * for indentation.
+   */
+  public static get insertSpaces() {
+    return vscode.window.activeTextEditor?.options.insertSpaces as boolean;
+  }
+
+  /**
+   * Whether or not the current active text editor is set to insert tabs
+   * for indentation.
+   */
+  public static get insertTabs() {
+    return !vscode.window.activeTextEditor?.options.insertSpaces as boolean;
+  }
+
+  /**
+   * The current length of the indent set for the current active text editor,
+   * or `undefined` if no editors open.
+   */
+  public static get indentSize() {
+    const editor = vscode.window.activeTextEditor;
+
+    if (editor === undefined) {
+      return undefined;
+    }
+
+    return editor.options.tabSize as number;
+  }
+
+  /**
+   * The text to be inserted for indentation set for the current active text
+   * editor, or `undefined` if no editors open.
+   */
+  public static get indentText() {
+    const editor = vscode.window.activeTextEditor;
+
+    if (editor === undefined) {
+      return undefined;
+    }
+
+    return editor?.options.insertSpaces
+      ? ' '.repeat(Number(editor.options.tabSize))
+      : '\t';
+  }
+
+  /**
+   * An object containing information about the indentation for the current
+   * line of text in the current active text editor, or `undefined` if no
+   * editors open.
+   *
+   * Has the following properties:
+   *
+   * `list`: A list of all the indents for the current line.
+   *
+   * `amount`: The number of indents for the current line.
+   *
+   * `text`: The text for the indent on the current line.
+   */
+  public static get currentLineIndentation() {
+    if (vscode.window.activeTextEditor === undefined) {
+      return undefined;
+    }
+
+    const currentLine = VSCX.currentLine as vscode.TextLine;
+    const firstText = currentLine?.firstNonWhitespaceCharacterIndex;
+    const indent = VSCX.indentText as string;
+
+    const foundTabs = currentLine.text
+      ?.slice(0, firstText)
+      ?.matchAll(new RegExp(indent, 'g'));
+
+    const list = foundTabs ? Array.from(foundTabs).map((t) => t[0]) : [];
+
+    const amount = list ? list.length : 0;
+
+    return { list, amount, text: currentLine.text };
+  }
+
+  /**
+   * An object that generates the text for indentation for the level of
+   * indentation at the current line in the current active text editor, or
+   * indentation at any levels offset from the current one. Will return
+   * `undefined` if no open text editors.
+   *
+   * Has the following properties:
+   *
+   * `currentLevel`: A number representing the current indentation level (based
+   *                 from 0).
+   *
+   * `current`: The text for the current level of indentation.
+   *
+   * `offset(n)`: A function that generates text from any level of indentation
+   *              offset from the current level (`n` can be negative).
+   */
+  public static get indent() {
+    const indentInfo = VSCX.currentLineIndentation;
+
+    if (indentInfo === undefined) {
+      return undefined;
+    }
+
+    const indent = VSCX.indentText as string;
+
+    const indentData: {
+      currentLevel: number;
+      current: string;
+      offset: (n: number) => string;
+    } = {
+      currentLevel: indentInfo?.amount,
+      current: indentInfo?.text,
+      offset(n: number) {
+        const level = this.currentLevel + n;
+        return level + n <= 0 ? '' : indent?.repeat(level);
+      },
+    };
+
+    return indentData;
+  }
+}
+
+//* MESSAGING
+export namespace VSCX {
+  /**
+   * Shorthand for `vscode.window.showInformationMessage`.
+   * @param message The message to show.
+   * @param items A list of {@link MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function info(
+    message: string,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showInformationMessage`.
+   * @param message The message to show.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function info(
+    message: string,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showInformationMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of {@link vscode.MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function info(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showInformationMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function info(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  export function info(message: string, options: any, ...items: any[]) {
+    return vscode.window.showInformationMessage(
+      message,
+      options || {},
+      ...items,
+    );
+  }
+
+  /**
+   * Shorthand for `vscode.window.showWarningMessage`.
+   * @param message The message to show.
+   * @param items A list of {@link vscode.MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function warn(
+    message: string,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showWarningMessage`.
+   * @param message The message to show.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function warn(
+    message: string,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showWarningMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of {@link vscode.MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function warn(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showWarningMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function warn(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  export function warn(message: string, options: any, ...items: any[]) {
+    return vscode.window.showWarningMessage(message, options || {}, ...items);
+  }
+
+  /**
+   * Shorthand for `vscode.window.showErrorMessage`.
+   * @param message The message to show.
+   * @param items A list of {@link vscode.MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function error(
+    message: string,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showErrorMessage`.
+   * @param message The message to show.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function error(
+    message: string,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showErrorMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of {@link vscode.MessageItem}s to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function error(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: vscode.MessageItem[]
+  ): Thenable<vscode.MessageItem | undefined>;
+
+  /**
+   * Shorthand for `vscode.window.showErrorMessage`.
+   * @param message The message to show.
+   * @param options A {@link vscode.MessageOptions} object.
+   * @param items A list of strings to be rendered as
+   *              actions in the message.
+   * @returns A {@link Thenable} that resolves to the selected item or
+   *          `undefined` when being dismissed.
+   */
+  export function error(
+    message: string,
+    options: vscode.MessageOptions,
+    ...items: string[]
+  ): Thenable<string | undefined>;
+
+  export function error(message: string, options: any, ...items: any[]) {
+    return vscode.window.showErrorMessage(message, options || {}, ...items);
+  }
+
+  /**
+   * The object type used in {@link VSCX.temporaryMessage}'s `updateMessage`
+   * function.
+   *
+   * Contains the following properties:
+   *
+   * `tick`: A string representing the number of the current update tick.
+   *
+   * `percentage`: A string representing the number of the percentage of the
+   *               progress bar (e.g. "97" for 97%).
+   *
+   * `ms`: An object representing the passage of milliseconds with the following
+   *       properties:
+   *
+   *  - `passed`: A string representing the number of millseconds passed
+   *              displaying the temporary message.
+   *
+   *  - `left`:   A string representing the number of milliseconds the
+   *              temporary message is scheduled to remain displayed.
+   *
+   * `seconds`: An object representing the passage of seconds with the
+   *            following properties:
+   *
+   *  - `passed`: A string representing the number of seconds passed
+   *              displaying the temporary message.
+   *
+   *  - `left`:   A string representing the number of seconds the
+   *              temporary message is scheduled to remain displayed.
+   */
+  export type TemporaryMessageUpdate = {
+    tick: string;
+    percentage: string;
+    ms: { passed: string; left: string };
+    seconds: { passed: string; left: string };
+  };
+
+  /**
+   * Creates a message that stays up for a specified amount of time, with a
+   * progress bar in the message denoting the remaining time before the message
+   * disappears.
+   *
+   * *Note that VS Code does not allow timed information messages, and that this
+   * is actually a customized progress notification to mimick one. This is not
+   * the same as an informational message.*
+   *
+   * @param message The message to display
+   * @param time The amount of time (in milliseconds) to display the message
+   * @param options An options object for the temporary message with the
+   *                following properties:
+   *
+   *                `ticks`: The number of ticks to use to update the progress
+   *                         bar.
+   *
+   *                    default: 100
+   *
+   *                `updateMessage`: A function that takes a
+   *                                 {@link TemporaryMessageUpdate} object and
+   *                                 generates a secondary message updated
+   *                                 every tick.
+   *
+   *                    default: undefined
+   *
+   *                `endLength`: The amount of time (in milliseconds) to
+   *                             display the progress as 100%. Ticks will
+   *                             run in `time` - `endLength` time.
+   *
+   *                    default: 300
+   *
+   *                 `cancellable`: Whether to display a "cancel" button that
+   *                                allows the user to close the message early.
+   *
+   *                    default: false
+   *
+   * @returns The {@link Thenable} returned from the message.
+   */
+  export function temporaryMessage(
+    message: string,
+    time: number,
+    {
+      // Default 100 ticks allows for relatively smooth progress bar animation,
+      // and also 100 is very natural due to a tick per percent.
+      ticks = 100,
+      // Default updateMessage function is effectively a nop for no message.
+      updateMessage = (_) => '',
+      // Default endlength is 300 to allow for natural flow of the progress
+      // bar with a slight, but visible moment where it is at 100% at the
+      // very end.
+      endLength = 300,
+      // Default cancellable is false because the "cancel" button looks odd
+      // for something that is mimicking a normal informational message.
+      cancellable = false,
+    }: {
+      ticks?: number;
+      updateMessage?: (update: TemporaryMessageUpdate) => any;
+      endLength: number;
+      cancellable?: boolean;
+    } = {
+      ticks: 100,
+      updateMessage: (_) => '',
+      endLength: 300,
+      cancellable: false,
+    },
+  ) {
+    updateMessage = updateMessage ?? ((_) => '');
+    let tickLoop: number = -1;
+
+    const output = vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: message,
+        cancellable,
+      },
+      async (progress, token) => {
+        // Set bar to 0% at start, to ensure default animation will not play.
+        progress.report({ increment: 0 });
+
+        let percentage = 0;
+        let tick = 0;
+        const msLeft = () => time - time * (percentage / 100);
+        let currentMSLeft = time;
+
+        // Set interval to update progress the amount specified with ticks.
+        tickLoop = setInterval(() => {
+          tick++;
+          percentage = percentage >= 100 ? 100 : percentage + 100 / ticks;
+
+          // Get snapshot of milliseconds left.
+          currentMSLeft = msLeft();
+
+          progress.report({
+            increment: 100 / ticks,
+            // Convert to string to allow for any possible update data.
+            message: updateMessage({
+              tick: tick.toString(),
+              percentage: percentage.toString(),
+              ms: {
+                passed: (time - currentMSLeft).toFixed(0),
+                left: currentMSLeft.toFixed(0),
+              },
+              seconds: {
+                passed: ((time - currentMSLeft) / 1000).toFixed(2),
+                left: (currentMSLeft / 1000).toFixed(2),
+              },
+            }).toString(),
+          });
+        }, (time - endLength) / ticks);
+
+        // Set progress to 100% for whatever the specified end length is.
+        if (endLength > 0) {
+          setTimeout(() => {
+            progress.report({ increment: 100 });
+            percentage = 100;
+          }, time - endLength);
+        }
+
+        // Wait for the specified time so the message stays up.
+        await new Promise((r) => setTimeout(r, time));
+      },
+    );
+
+    // Remove the tick interval when done.
+    clearInterval(tickLoop);
+
+    return output;
+  }
+}
+
+// * QUICKPICK
+export namespace VSCX {
+  /**
+   * Utility function over {@link vscode.window.showQuickPick}, which shows
+   * a popup menu list of choice to select from.
+   *
+   * Similar in structure, but allows for mixing strings and
+   * {@link vscode.QuickPickItem} items, with the strings being automatically
+   * converted into quick pick items.
+   *
+   * Additionally, the method has the convenience of having any string item
+   * in the format of "`----- TEXT`" being converted into a separator quick
+   * pick item with any text being set as the label for the separator.
+   *
+   * @param items The items to use as choices in the menu.
+   * @param options The options for the quick pick menu itself.
+   * @param token A {@link vscode.CancellationToken} to signify if the
+   *              menu is cancelled.
+   *
+   * @returns A promise that resolves to the selected item or `undefined`.
+   */
+  export function quickpick(
+    items: (string | vscode.QuickPickItem)[],
+    options: vscode.QuickPickOptions = {
+      canPickMany: false,
+      ignoreFocusOut: false,
+      matchOnDescription: false,
+      matchOnDetail: false,
+    },
+    token?: vscode.CancellationToken,
+  ) {
+    // Convert all string items to a QuickPickItem version.
+    items = items.map((item) => {
+      let output = item;
+      let itemKind = vscode.QuickPickItemKind.Default;
+
+      if (typeof item !== 'string') {
+        return item;
+      }
+
+      // Allow special syntax to easily create a separator with string item.
+      // Any string of "----- TEXT" becomes a separator with a label of
+      // TEXT.
+      if (item.startsWith('-----')) {
+        item = item.slice(0, 5).trimStart();
+        itemKind = vscode.QuickPickItemKind.Separator;
+      }
+
+      output = {
+        alwaysShow: true,
+        label: item,
+        kind: itemKind,
+      };
+
+      return output as vscode.QuickPickItem;
+    });
+
+    return vscode.window.showQuickPick(
+      items as vscode.QuickPickItem[],
+      options,
+      token,
+    );
+  }
+}
+
+// * COMMANDS
+export namespace VSCX {
+  /**
+   * The list of commands registered for VSCode.
+   * @param showInternal Whether or not to show internal VSCode commands
+   *                     (They start with an underscore).
+   * @returns A promise containing a list of strings of all the command names.
+   */
+  export async function commandList(showInternal: boolean = false) {
+    return await vscode.commands.getCommands(showInternal);
+  }
+
+  /**
+   * Checks if the given command names have been registered with VSCode.
+   *
+   * @param commandNames The names of the commands to test the existence of.
+   * @returns A boolean representing if all the command names have been
+   *          registered.
+   */
+  export async function commandExists(...commandNames: string[]) {
+    const commands = await VSCX.commandList();
+
+    // Return whether any command name given is not found in command list.
+    return Boolean(commandNames.find((name) => commands.includes(name)));
+  }
+}
+
+export namespace VSCX {
+  // * ATTRIBUTE ACCESSORS
   /**
    * Get the current file language id, and see if it matches against a list
    * of given options.
@@ -107,7 +706,7 @@ export class VSCX {
    *                 ones you want coalesced into other values.
    * @returns The matching option, or `null` if not found.
    */
-  public static currentLanguageMatch(
+  export function currentLanguageMatch(
     options: string[],
     coalesce?: Record<string, string>,
   ) {
@@ -128,160 +727,7 @@ export class VSCX {
     return null;
   }
 
-  /**
-   * The primary editor cursor selection, or `undefined` if there is no
-   * cursor to get.
-   */
-  public static get selection() {
-    return VSCX.editor?.selection;
-  }
-
-  /**
-   * The cursor position for the primary editor cursor.
-   */
-  public static get cursorPosition() {
-    return VSCX.selection?.active;
-  }
-
-  /**
-   * The line of text that the primary editor cursor is at. If the cursor
-   * position is not found, this will return `undefined`.
-   */
-  public static get currentLine() {
-    const position = VSCX.cursorPosition;
-
-    return position ? VSCX.document?.lineAt(position) : undefined;
-  }
-
-  // * COMPUTATED ACCESSORS
-  /**
-   * The string of text that matches the text for a single level of
-   * indentation based on the current editor settings.
-   *
-   * Will return spaces if indentation is set to be spaces, otherwise a
-   * tab character.
-   */
-  public static get tabText() {
-    const editor = VSCX.editor;
-
-    return editor?.options.insertSpaces
-      ? ' '.repeat(Number(editor.options.tabSize))
-      : '\t';
-  }
-
-  /**
-   * Information on the indentation found on the line of text the primary
-   * cursor is located on.
-   *
-   * Returns an object containing a list of all the tabs found, and the
-   * amount of tabs found.
-   */
-  public static get currentLineTabs() {
-    const firstText = VSCX.currentLine?.firstNonWhitespaceCharacterIndex;
-    const tab = VSCX.tabText;
-
-    const foundTabs = VSCX.currentLine?.text
-      ?.slice(0, firstText)
-      ?.matchAll(new RegExp(tab, 'g'));
-
-    const list = foundTabs ? Array.from(foundTabs).map((t) => t[0]) : [];
-
-    const amount = list ? list.length : 0;
-
-    return { list, amount };
-  }
-
-  /**
-   * An object that contains information on the indentation text for
-   * every indentation level from 0 to the current level to any afterwards.
-   *
-   * @returns An object with:
-   *
-   *          `currentLevel` The amount of indents for the current level
-   *
-   *          `current` The text making up the current indentation level
-   *
-   *          `offset(n)` A function that returns the indent at level
-   *                      `currentLevel + n`.
-   */
-  public static get indent() {
-    const indentInfo = VSCX.currentLineTabs;
-    const tab = VSCX.tabText;
-
-    const indentData: {
-      currentLevel: number;
-      current: string;
-      offset: (n: number) => string;
-    } = {
-      currentLevel: indentInfo.amount,
-      current: indentInfo.list.join(''),
-      offset(n: number) {
-        const level = this.currentLevel + n;
-
-        return level + n <= 0 ? '' : tab.repeat(level);
-      },
-    };
-
-    return indentData;
-  }
-
-  /**
-   * The list of commands registered for VSCode.
-   * @param showInternal Whether or not to show internal VSCode commands
-   *                     (They start with an underscore).
-   * @returns A promise containing a list of strings of all the command names.
-   */
-  public static async commandList(showInternal: boolean = false) {
-    return await vscode.commands.getCommands(showInternal);
-  }
-
   // * VSCODE API FUNCTIONALITY
-  /**
-   * Checks if the given command names have been registered with VSCode.
-   *
-   * @param commandNames The names of the commands to test the existence of.
-   * @returns A boolean representing if all the command names have been
-   *          registered.
-   */
-  public static async commandExists(...commandNames: string[]) {
-    const commandList = await VSCX.commandList();
-
-    // Return whether any command name given is not found in command list.
-    return Boolean(commandNames.find((name) => commandList.includes(name)));
-  }
-
-  /**
-   * Shorthand for `vscode.window.showInformationMessage`.
-   * @param message The message to show.
-   * @param items A list of items to be rendered as actions in the message.
-   * @returns A thenable that resolves to the selected item or `undefined` when
-   *          being dismissed.
-   */
-  public static info(message: string, ...items: string[]) {
-    return VSCX.window.showInformationMessage(message, ...items);
-  }
-
-  /**
-   * Shorthand for `vscode.window.showWarningMessage`.
-   * @param message The message to show.
-   * @param items A list of items to be rendered as actions in the message.
-   * @returns A thenable that resolves to the selected item or `undefined` when
-   *          being dismissed.
-   */
-  public static warn(message: string, ...items: string[]) {
-    return VSCX.window.showWarningMessage(message, ...items);
-  }
-
-  /**
-   * Shorthand for `vscode.window.showErrorMessage`.
-   * @param message The message to show.
-   * @param items A list of items to be rendered as actions in the message.
-   * @returns A thenable that resolves to the selected item or `undefined` when
-   *          being dismissed.
-   */
-  public static error(message: string, ...items: string[]) {
-    return VSCX.window.showErrorMessage(message, ...items);
-  }
 
   /**
    * Convenient wrapper around `vscode.window.showInputBox`, with more
@@ -294,7 +740,7 @@ export class VSCX {
    * @returns The value given to the input box, otherwise undefined or whatever
    *          is set for `options.valueOnCancel` (if given).
    */
-  public static async getInput(options: GetInputOptions | string) {
+  export async function getInput(options: GetInputOptions | string) {
     if (typeof options === 'string') {
       return await VSCX.window.showInputBox({ prompt: options });
     } else if (options instanceof Object) {
@@ -320,7 +766,7 @@ export class VSCX {
    *
    * @param text The text to insert after the cursor.
    */
-  public static insertAtCursor(text: string) {
+  export function insertAtCursor(text: string) {
     VSCX.editor?.edit((editBuilder) => {
       editBuilder.insert(VSCX.cursorPosition as vscode.Position, text);
     });
@@ -337,7 +783,7 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public static async moveCursor(
+  export async function moveCursor(
     direction: MoveCursorDirection,
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
@@ -360,14 +806,14 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public static async moveCursorUp(
+  export async function moveCursorUp(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
     select: boolean = false,
   ) {
     amount = typeof amount === 'string' ? amount.length : amount;
 
-    return await VSCX.moveCursor('up', unit, amount, select);
+    return await VSCX.moveCursor(MoveCursorDirections.Up, unit, amount, select);
   }
 
   /**
@@ -378,14 +824,19 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public static async moveCursorDown(
+  export async function moveCursorDown(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
     select = false,
   ) {
     amount = typeof amount === 'string' ? amount.length : amount;
 
-    return await VSCX.moveCursor('down', unit, amount, select);
+    return await VSCX.moveCursor(
+      MoveCursorDirections.Down,
+      unit,
+      amount,
+      select,
+    );
   }
 
   /**
@@ -396,14 +847,19 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public async moveCursorLeft(
+  export async function moveCursorLeft(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
     select = false,
   ) {
     amount = typeof amount === 'string' ? amount.length : amount;
 
-    return await VSCX.moveCursor('left', unit, amount, select);
+    return await VSCX.moveCursor(
+      MoveCursorDirections.Left,
+      unit,
+      amount,
+      select,
+    );
   }
 
   /**
@@ -414,14 +870,19 @@ export class VSCX {
    * @param select    Whether to select text as the cursor moves.
    * @returns Whatever `moveCommand` is supposed to return; probably `undefined`.
    */
-  public static async moveCursorRight(
+  export async function moveCursorRight(
     unit: 'line' | 'wrappedLine' | 'character' | 'halfLine',
     amount: number | string = 1,
     select = false,
   ) {
     amount = typeof amount === 'string' ? amount.length : amount;
 
-    return await VSCX.moveCursor('right', unit, amount, select);
+    return await VSCX.moveCursor(
+      MoveCursorDirections.Right,
+      unit,
+      amount,
+      select,
+    );
   }
 
   /**
@@ -444,7 +905,7 @@ export class VSCX {
    * @returns An object with the opened text file document and the editor
    *          it was opened in (if allowed).
    */
-  public static async openTextFile(
+  export async function openTextFile(
     context: vscode.ExtensionContext,
     path: string,
     options: vscode.TextDocumentShowOptions & {
@@ -486,7 +947,7 @@ export class VSCX {
    *                lets you to specify if the file path given is relative or
    *                not.
    */
-  public static async previewMarkdownFile(
+  export async function previewMarkdownFile(
     context: vscode.ExtensionContext,
     path: string,
     options: { absolutePath?: boolean } = {},
@@ -515,7 +976,10 @@ export class VSCX {
    * @returns The text, converted to camelCase with any separators
    *          (anything not a letter or number) removed.
    */
-  public static camelize(text: string, keepOuterUnderscores: boolean = false) {
+  export function camelize(
+    text: string,
+    keepOuterUnderscores: boolean = false,
+  ) {
     let [startUnderscores, endUnderscores] = ['', ''];
 
     if (keepOuterUnderscores) {
@@ -553,7 +1017,10 @@ export class VSCX {
    * @returns The text, converted to PascalCase with any separators
    *          (anything not a letter or number) removed.
    */
-  public static pascalize(text: string, keepOuterUnderscores: boolean = false) {
+  export function pascalize(
+    text: string,
+    keepOuterUnderscores: boolean = false,
+  ) {
     let [startUnderscores, endUnderscores] = ['', ''];
 
     if (keepOuterUnderscores) {
@@ -598,12 +1065,12 @@ export class VSCX {
    * @returns The text chopped into multiple lines within the length limit,
    *          either as a string or an array.
    */
-  public static withinCharLimit(
+  export function withinCharLimit(
     text: string,
     limit: number,
     { prefix, asArray } = { prefix: '', asArray: false },
   ) {
-    const lines = [];
+    const lines: string[] = [];
     let currentLine = prefix;
 
     for (const word of text.split(/\s+/)) {
@@ -639,7 +1106,7 @@ export class VSCX {
    * @returns The text chopped into multiple lines within 80 characters,
    *          either as a string or an array.
    */
-  public static within80Chars(
+  export function within80Chars(
     text: string,
     { prefix, asArray } = { prefix: '', asArray: false },
   ) {
