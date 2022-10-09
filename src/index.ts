@@ -604,6 +604,30 @@ export namespace VSCX {
 
 // * QUICKPICK
 export namespace VSCX {
+  function _strToQP(text: string): vscode.QuickPickItem {
+    // Allow special syntax to easily create a separator with string item.
+    // Any string of "----- TEXT" becomes a separator with a label of
+    // TEXT.
+    if (text.startsWith('-----')) {
+      return {
+        label: text.slice(0, 5).trimStart(),
+        kind: vscode.QuickPickItemKind.Separator,
+      };
+    }
+
+    let [label, description, detail, rest] = ['', '', '', ''];
+
+    [label, rest] = text.split('::', 2);
+    [description, detail] = rest.split('??', 2);
+
+    return {
+      alwaysShow: true,
+      label: label.trim(),
+      description: description.trim(),
+      detail: detail.trim(),
+    };
+  }
+
   /**
    * Utility function over {@link vscode.window.showQuickPick}, which shows
    * a popup menu list of choice to select from.
@@ -635,28 +659,11 @@ export namespace VSCX {
   ) {
     // Convert all string items to a QuickPickItem version.
     items = items.map((item) => {
-      let output = item;
-      let itemKind = vscode.QuickPickItemKind.Default;
-
       if (typeof item !== 'string') {
         return item;
       }
 
-      // Allow special syntax to easily create a separator with string item.
-      // Any string of "----- TEXT" becomes a separator with a label of
-      // TEXT.
-      if (item.startsWith('-----')) {
-        item = item.slice(0, 5).trimStart();
-        itemKind = vscode.QuickPickItemKind.Separator;
-      }
-
-      output = {
-        alwaysShow: true,
-        label: item,
-        kind: itemKind,
-      };
-
-      return output as vscode.QuickPickItem;
+      return _strToQP(item) as vscode.QuickPickItem;
     });
 
     return vscode.window.showQuickPick(
