@@ -604,21 +604,51 @@ export namespace VSCX {
 
 // * QUICKPICK
 export namespace VSCX {
-  function _strToQP(text: string): vscode.QuickPickItem {
+  function _strToQP(text: string) {
     // Allow special syntax to easily create a separator with string item.
     // Any string of "----- TEXT" becomes a separator with a label of
     // TEXT.
     if (text.startsWith('-----')) {
       return {
         label: text.slice(0, 5).trimStart(),
-        kind: vscode.QuickPickItemKind.Separator,
+        kind: 'SEP',
       };
     }
 
-    let [label, description, detail, rest] = ['', '', '', ''];
+    // Lambda to split text into two parts, as String.split does not actually
+    // return the rest of the string in the last part.
+    const split = (s: string, pattern: string) => {
+      let parts = s.split(pattern);
 
-    [label, rest] = text.split('::', 2);
-    [description, detail] = rest.split('??', 2);
+      if (parts.length > 2) {
+        parts = [parts[0], parts.slice(1).join(pattern)];
+      }
+
+      return parts;
+    };
+
+    let [label, description, detail] = ['', '', '', ''];
+
+    const firstSplit = split(text, '::');
+
+    label = firstSplit[0];
+
+    if (firstSplit.length > 1) {
+      description = firstSplit[1];
+      text = firstSplit[1];
+    } else {
+      text = firstSplit[0];
+    }
+
+    const secondSplit = split(text, '??');
+
+    if (secondSplit.length > 1) {
+      if (description !== '') {
+        description = secondSplit[0];
+      }
+
+      detail = secondSplit[1];
+    }
 
     return {
       alwaysShow: true,
