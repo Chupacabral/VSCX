@@ -1,9 +1,67 @@
 import * as vscode from 'vscode';
-import {
-  MoveCursorDirection,
-  MoveCursorDirections,
-} from './move_cursor_direction';
-import { GetInputOptions } from './get_input_options';
+import NanoTimer from 'nanotimer';
+
+/**
+ * Type describing the possible movement options for the VSCode API built-in
+ * command `cursorMove`, used in functions like `VSCX.moveCursor`.
+ */
+export type MoveCursorDirection =
+  | 'left'
+  | 'right'
+  | 'up'
+  | 'down'
+  | 'prevBlankLine'
+  | 'nextBlankLine'
+  | 'wrappedLineStart'
+  | 'wrappedLineEnd'
+  | 'wrappedLineColumnCenter'
+  | 'wrappedLineFirstNonWhitespaceCharacter'
+  | 'wrappedLineLastNonWhitespaceCharacter'
+  | 'viewPortTop'
+  | 'viewPortCenter'
+  | 'viewPortBottom'
+  | 'viewPortIfOutside';
+
+/**
+ * Enum of all the possible movement options described within
+ * {@link MoveCursorDirection}
+ * so that the string values do not need to be typed.
+ */
+export enum MoveCursorDirections {
+  Left = 'left',
+  Right = 'right',
+  Up = 'up',
+  Down = 'down',
+  PrevBlankLine = 'prevBlankLine',
+  NextBlankLine = 'nextBlankLine',
+  WrappedLineStart = 'wrappedLineStart',
+  WrappedLineColumnCenter = 'wrappedLineColumnCenter',
+  WrappedLineEnd = 'wrappedLineEnd',
+  WrappedLineFirstNonWhitespaceCharacter = 'wrappedLineFirstNonWhitespaceCharacter',
+  WrappedLineLastNonWhitespaceCharacter = 'wrappedLineLastNonWhitespaceCharacter',
+  ViewPortTop = 'viewPortTop',
+  ViewPortCenter = 'viewPortCenter',
+  ViewPortBottom = 'viewPortBottom',
+  ViewPortIfOutside = 'viewPortIfOutside',
+}
+
+/**
+ * Type describing options for `VSCX.getInput`.
+ *
+ * Is generally the same as `vscode.InputBoxOptions`, but with an additional
+ * `valueOnCancel` attribute, that allows for a custom value to be returned
+ * if the input box is cancelled, instead of only returning undefined.
+ */
+export type GetInputOptions = {
+  ignoreFocusOut?: boolean;
+  password?: boolean;
+  placeHolder?: string;
+  prompt?: string;
+  title?: string;
+  value?: string;
+  valueSelection?: [number, number];
+  valueOnCancel?: any;
+};
 
 //* GETTERS
 export class VSCX {
@@ -455,6 +513,9 @@ export namespace VSCX {
    *  - `left`:   A string representing the number of milliseconds the
    *              temporary message is scheduled to remain displayed.
    *
+   *  - `total`:  A string representing the number of milliseconds the message
+   *              is scheduled to display overall.
+   *
    * `seconds`: An object representing the passage of seconds with the
    *            following properties:
    *
@@ -463,12 +524,15 @@ export namespace VSCX {
    *
    *  - `left`:   A string representing the number of seconds the
    *              temporary message is scheduled to remain displayed.
+   *
+   *  - `total`:  A string representing the number of seconds the message
+   *              is scheduled to display overall.
    */
   export type TemporaryMessageUpdate = {
     tick: string;
     percentage: string;
-    ms: { passed: string; left: string };
-    seconds: { passed: string; left: string };
+    ms: { passed: string; left: string; total: string };
+    seconds: { passed: string; left: string; total: string };
   };
 
   /**
@@ -481,12 +545,18 @@ export namespace VSCX {
    * the same as an informational message.*
    *
    * @param message The message to display
-   * @param time The amount of time (in milliseconds) to display the message
    * @param options An options object for the temporary message with the
    *                following properties:
    *
+   *                `time`: The amount of time (in milliseconds) to display
+   *                        the message.
+   *
+   *                    default: 2000
+   *
    *                `ticks`: The number of ticks to use to update the progress
-   *                         bar.
+   *                         bar (note that ticks will become inaccurate if
+   *                         `time/ticks` would mean each tick is less than a
+   *                         microsecond).
    *
    *                    default: 100
    *
@@ -512,8 +582,10 @@ export namespace VSCX {
    */
   export function temporaryMessage(
     message: string,
-    time: number,
     {
+      // Default time of 2 seconds as that is reasonable for a short popup
+      // notification.
+      time = 2000,
       // Default 100 ticks allows for relatively smooth progress bar animation,
       // and also 100 is very natural due to a tick per percent.
       ticks = 100,
@@ -527,11 +599,13 @@ export namespace VSCX {
       // for something that is mimicking a normal informational message.
       cancellable = false,
     }: {
+      time?: number;
       ticks?: number;
       updateMessage?: (update: TemporaryMessageUpdate) => any;
-      endLength: number;
+      endLength?: number;
       cancellable?: boolean;
     } = {
+      time: 3000,
       ticks: 100,
       updateMessage: (_) => '',
       endLength: 300,
@@ -539,7 +613,11 @@ export namespace VSCX {
     },
   ) {
     updateMessage = updateMessage ?? ((_) => '');
-    let tickLoop: number = -1;
+    // Have to use a much more accurate timer than what runtimes like Node
+    // provides, as otherwise smaller tick times will be wildly inaccurate since
+    // otherwise ticks can be off by orders of magnitude and the counter can
+    // end up wildly wrong.
+    const timer = new NanoTimer();
 
     const output = vscode.window.withProgress(
       {
@@ -557,46 +635,58 @@ export namespace VSCX {
         let currentMSLeft = time;
 
         // Set interval to update progress the amount specified with ticks.
-        tickLoop = setInterval(() => {
-          tick++;
-          percentage = percentage >= 100 ? 100 : percentage + 100 / ticks;
+        timer.setInterval(
+          () => {
+            tick++;
+            percentage = percentage >= 100 ? 100 : percentage + 100 / ticks;
+            if (percentage >= 100) {
+              return;
+            }
 
-          // Get snapshot of milliseconds left.
-          currentMSLeft = msLeft();
+            // Get snapshot of milliseconds left.
+            currentMSLeft = msLeft();
 
-          progress.report({
-            increment: 100 / ticks,
-            // Convert to string to allow for any possible update data.
-            message: updateMessage({
-              tick: tick.toString(),
-              percentage: percentage.toString(),
-              ms: {
-                passed: (time - currentMSLeft).toFixed(0),
-                left: currentMSLeft.toFixed(0),
-              },
-              seconds: {
-                passed: ((time - currentMSLeft) / 1000).toFixed(2),
-                left: (currentMSLeft / 1000).toFixed(2),
-              },
-            }).toString(),
-          });
-        }, (time - endLength) / ticks);
+            progress.report({
+              increment: 100 / ticks,
+              // Convert to string to allow for any possible update data.
+              message: updateMessage({
+                tick: tick.toString(),
+                percentage: percentage.toFixed(2),
+                ms: {
+                  passed: (time - currentMSLeft).toFixed(0),
+                  left: currentMSLeft.toFixed(0),
+                  total: time.toFixed(0),
+                },
+                seconds: {
+                  passed: ((time - currentMSLeft) / 1000).toFixed(2),
+                  left: (currentMSLeft / 1000).toFixed(2),
+                  total: (time / 1000).toFixed(2),
+                },
+              }).toString(),
+            });
+          },
+          '',
+          ((time - endLength) / ticks).toFixed(0) + 'm',
+        );
 
         // Set progress to 100% for whatever the specified end length is.
         if (endLength > 0) {
-          setTimeout(() => {
-            progress.report({ increment: 100 });
-            percentage = 100;
-          }, time - endLength);
+          timer.setTimeout(
+            () => {
+              progress.report({ increment: 100 });
+              percentage = 100;
+            },
+            '',
+            (time - endLength).toFixed(0) + 'm',
+          );
         }
 
         // Wait for the specified time so the message stays up.
         await new Promise((r) => setTimeout(r, time));
+        // Remove the tick interval when done.
+        timer.clearInterval();
       },
     );
-
-    // Remove the tick interval when done.
-    clearInterval(tickLoop);
 
     return output;
   }
@@ -610,8 +700,8 @@ export namespace VSCX {
     // TEXT.
     if (text.startsWith('-----')) {
       return {
-        label: text.slice(0, 5).trimStart(),
-        kind: 'SEP',
+        label: text.slice(5).trimStart(),
+        kind: vscode.QuickPickItemKind.Separator,
       };
     }
 
@@ -627,7 +717,13 @@ export namespace VSCX {
       return parts;
     };
 
-    let [label, description, detail] = ['', '', '', ''];
+    // See if item text is flagged to be a picked item for canPickMany.
+    const picked = text.startsWith('!!');
+    if (picked) {
+      text = text.slice(2);
+    }
+
+    let [label, description, detail] = ['', '', ''];
 
     const firstSplit = split(text, '::');
 
@@ -653,6 +749,7 @@ export namespace VSCX {
     return {
       alwaysShow: true,
       label: label.trim(),
+      picked,
       description: description.trim(),
       detail: detail.trim(),
     };
@@ -666,9 +763,22 @@ export namespace VSCX {
    * {@link vscode.QuickPickItem} items, with the strings being automatically
    * converted into quick pick items.
    *
-   * Additionally, the method has the convenience of having any string item
-   * in the format of "`----- TEXT`" being converted into a separator quick
-   * pick item with any text being set as the label for the separator.
+   * Additionally, the main benefit of this function is that it supports a
+   * convenient method of making simple quickpick menus via strings:
+   *
+   * - Any string starting with "`-----`" will be made a separator, with any
+   *   text after being the label for the separator.
+   *
+   * - You can make detailed menu items via strings with the format:
+   *
+   *   `LABEL :: DESCRIPTION ?? DETAIL`
+   *
+   *   and no parts are required, so you don't need a detail if you want.
+   *
+   *   (If you have a quickpick with `canPickMany` set on, you can put a
+   *    `!!` at the start of the item to have it set to be auto picked)
+   *
+   *
    *
    * @param items The items to use as choices in the menu.
    * @param options The options for the quick pick menu itself.
@@ -1150,3 +1260,5 @@ export namespace VSCX {
     return VSCX.withinCharLimit(text, 80, { prefix, asArray });
   }
 }
+
+export default VSCX;
